@@ -2,7 +2,7 @@
     <string name="app_name">BLEProof Central</string>
     <string name="text_state_disconnected">State: Disconnected</string>
     <string name="button_read">Read</string>
-    <string name="button_write">Write</string>
+    <string name="button_write">Send</string>
     <string name="button_clear_log">Clear</string>
     <string name="text_static_read_hint">Readable characteristic</string>
     <string name="text_static_write_hint">Writeable characteristic</string>

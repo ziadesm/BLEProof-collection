@@ -1,16 +1,18 @@
 package com.rpt11.bleproofperipheral
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.*
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
+import android.bluetooth.le.AdvertiseSettings.ADVERTISE_TX_POWER_LOW
+import android.bluetooth.le.AdvertiseSettings.ADVERTISE_TX_POWER_ULTRA_LOW
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Handler
 import android.os.ParcelUuid
@@ -19,6 +21,7 @@ import android.view.View
 import android.widget.EditText
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.google.android.material.switchmaterial.SwitchMaterial
 import java.text.SimpleDateFormat
@@ -32,6 +35,7 @@ private const val CHAR_FOR_WRITE_UUID = "25AE1443-05D3-4C5B-8281-93D4E07420CF"
 private const val CHAR_FOR_INDICATE_UUID = "25AE1444-05D3-4C5B-8281-93D4E07420CF"
 private const val CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
 
+@SuppressLint("MissingPermission")
 class MainActivity : AppCompatActivity() {
     private val switchAdvertising: SwitchMaterial
         get() = findViewById<SwitchMaterial>(R.id.switchAdvertising)
@@ -50,31 +54,13 @@ class MainActivity : AppCompatActivity() {
     private val textViewSubscribers: TextView
         get() = findViewById<TextView>(R.id.textViewSubscribers)
 
-    private var isAdvertising = false
-        set(value) {
-            field = value
-
-            // update visual state of the switch
-            runOnUiThread {
-                Handler().postDelayed( {
-                    if (value != switchAdvertising.isChecked)
-                        switchAdvertising.isChecked = value
-                }, 200)
-            }
-        }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         appendLog("MainActivity.onCreate")
-
-        switchAdvertising.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                prepareAndStartAdvertising()
-            } else {
-                bleStopAdvertising()
-            }
+        ensureBluetoothCanBeUsed { mes, isSuccess ->
+            prepareAndStartAdvertising()
         }
     }
 
@@ -118,22 +104,18 @@ class MainActivity : AppCompatActivity() {
                 appendLog(message)
                 if (isSuccess) {
                     bleStartAdvertising()
-                } else {
-                    isAdvertising = false
                 }
             }
         }
     }
 
     private fun bleStartAdvertising() {
-        isAdvertising = true
-        bleStartGattServer()
+//        bleStartGattServer()
         bleAdvertiser.startAdvertising(advertiseSettings, advertiseData, advertiseCallback)
     }
 
     private fun bleStopAdvertising() {
-        isAdvertising = false
-        bleStopGattServer()
+//        bleStopGattServer()
         bleAdvertiser.stopAdvertising(advertiseCallback)
     }
 
@@ -195,24 +177,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     //region BLE advertise
-    private val bleAdvertiser by lazy {
-        bluetoothAdapter.bluetoothLeAdvertiser
-    }
+    private val bleAdvertiser by lazy { bluetoothAdapter.bluetoothLeAdvertiser }
 
     private val advertiseSettings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
-            .setConnectable(true)
-            .build()
+        .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
+        .setConnectable(true)
+        .setTxPowerLevel(ADVERTISE_TX_POWER_ULTRA_LOW)
+        .build()
 
     private val advertiseData = AdvertiseData.Builder()
-            .setIncludeDeviceName(false) // don't include name, because if name size > 8 bytes, ADVERTISE_FAILED_DATA_TOO_LARGE
-            .addServiceUuid(ParcelUuid(UUID.fromString(SERVICE_UUID)))
-            .build()
+        .addServiceUuid(ParcelUuid(UUID.fromString(SERVICE_UUID)))
+        .setIncludeDeviceName(false) // don't include name, because if name size > 8 bytes, ADVERTISE_FAILED_DATA_TOO_LARGE
+        .build()
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-            appendLog("Advertise start success\n$SERVICE_UUID")
+            appendLog("Advertise start success $settingsInEffect.")
         }
 
         override fun onStartFailure(errorCode: Int) {
@@ -225,8 +205,8 @@ class MainActivity : AppCompatActivity() {
                 else -> ""
             }
             appendLog("Advertise start failed: errorCode=$errorCode $desc")
-            isAdvertising = false
         }
+
     }
     //endregion
 

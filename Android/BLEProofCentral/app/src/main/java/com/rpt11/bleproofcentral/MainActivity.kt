@@ -1,6 +1,7 @@
 package com.rpt11.bleproofcentral
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.bluetooth.*
 import android.bluetooth.le.ScanCallback
@@ -24,6 +25,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.switchmaterial.SwitchMaterial
+import java.lang.Math.pow
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -36,6 +38,7 @@ private const val CHAR_FOR_WRITE_UUID = "25AE1443-05D3-4C5B-8281-93D4E07420CF"
 private const val CHAR_FOR_INDICATE_UUID = "25AE1444-05D3-4C5B-8281-93D4E07420CF"
 private const val CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
 
+@SuppressLint("MissingPermission")
 class MainActivity : AppCompatActivity() {
     enum class BLELifecycleState {
         Disconnected,
@@ -47,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var lifecycleState = BLELifecycleState.Disconnected
+        @SuppressLint("SetTextI18n")
         set(value) {
             field = value
             appendLog("status = $value")
@@ -57,9 +61,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-
-    private val switchConnect: SwitchMaterial
-        get() = findViewById<SwitchMaterial>(R.id.switchConnect)
     private val textViewLifecycleState: TextView
         get() = findViewById<TextView>(R.id.textViewLifecycleState)
     private val textViewReadValue: TextView
@@ -75,7 +76,6 @@ class MainActivity : AppCompatActivity() {
     private val scrollViewLog: ScrollView
         get() = findViewById<ScrollView>(R.id.scrollViewLog)
 
-    private val userWantsToScanAndConnect: Boolean get() = switchConnect.isChecked
     private var isScanning = false
     private var connectedGatt: BluetoothGatt? = null
     private var characteristicForRead: BluetoothGattCharacteristic? = null
@@ -85,19 +85,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-
-        switchConnect.setOnCheckedChangeListener { _, isChecked ->
-            when (isChecked) {
-                true -> {
-                    val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
-                    registerReceiver(bleOnOffListener, filter)
-                }
-                false -> {
-                    unregisterReceiver(bleOnOffListener)
-                }
-            }
-            bleRestartLifecycle()
+        ensureBluetoothCanBeUsed { isSuccess, message ->
+            prepareAndStartBleScan()
         }
+
         appendLog("MainActivity.onCreate")
     }
 
@@ -172,18 +163,10 @@ class MainActivity : AppCompatActivity() {
         characteristicForIndicate = null
     }
 
-    private fun bleRestartLifecycle() {
-        runOnUiThread {
-            if (userWantsToScanAndConnect) {
-                if (connectedGatt == null) {
-                    prepareAndStartBleScan()
-                } else {
-                    connectedGatt?.disconnect()
-                }
-            } else {
-                bleEndLifecycle()
-            }
-        }
+    override fun onPause() {
+        super.onPause()
+        bleEndLifecycle()
+        connectedGatt?.disconnect()
     }
 
     private fun prepareAndStartBleScan() {
@@ -201,9 +184,6 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val serviceFilter = scanFilter.serviceUuid?.uuid.toString()
-        appendLog("Starting BLE scan, filter: $serviceFilter")
-
         isScanning = true
         lifecycleState = BLELifecycleState.Scanning
         bleScanner.startScan(mutableListOf(scanFilter), scanSettings, scanCallback)
@@ -218,32 +198,6 @@ class MainActivity : AppCompatActivity() {
         appendLog("Stopping BLE scan")
         isScanning = false
         bleScanner.stopScan(scanCallback)
-    }
-
-    private fun subscribeToIndications(characteristic: BluetoothGattCharacteristic, gatt: BluetoothGatt) {
-        val cccdUuid = UUID.fromString(CCC_DESCRIPTOR_UUID)
-        characteristic.getDescriptor(cccdUuid)?.let { cccDescriptor ->
-            if (!gatt.setCharacteristicNotification(characteristic, true)) {
-                appendLog("ERROR: setNotification(true) failed for ${characteristic.uuid}")
-                return
-            }
-            cccDescriptor.value = BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
-            gatt.writeDescriptor(cccDescriptor)
-        }
-    }
-
-    private fun unsubscribeFromCharacteristic(characteristic: BluetoothGattCharacteristic) {
-        val gatt = connectedGatt ?: return
-
-        val cccdUuid = UUID.fromString(CCC_DESCRIPTOR_UUID)
-        characteristic.getDescriptor(cccdUuid)?.let { cccDescriptor ->
-            if (!gatt.setCharacteristicNotification(characteristic, false)) {
-                appendLog("ERROR: setNotification(false) failed for ${characteristic.uuid}")
-                return
-            }
-            cccDescriptor.value = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
-            gatt.writeDescriptor(cccDescriptor)
-        }
     }
 
     private val bluetoothAdapter: BluetoothAdapter by lazy {
@@ -262,11 +216,8 @@ class MainActivity : AppCompatActivity() {
 
     private val scanSettings: ScanSettings
         get() {
-            return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                scanSettingsSinceM
-            } else {
-                scanSettingsBeforeM
-            }
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) scanSettingsSinceM
+            else scanSettingsBeforeM
         }
 
     private val scanSettingsBeforeM = ScanSettings.Builder()
@@ -276,31 +227,49 @@ class MainActivity : AppCompatActivity() {
 
     @RequiresApi(Build.VERSION_CODES.M)
     private val scanSettingsSinceM = ScanSettings.Builder()
-        .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
-        .setCallbackType(ScanSettings.CALLBACK_TYPE_FIRST_MATCH)
-        .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+        .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+        .setMatchMode(ScanSettings.MATCH_MODE_STICKY)
         .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
         .setReportDelay(0)
         .build()
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val name: String? = result.scanRecord?.deviceName ?: result.device.name
-            appendLog("onScanResult name=$name address= ${result.device?.address}")
-            safeStopBleScan()
-            lifecycleState = BLELifecycleState.Connecting
-            result.device.connectGatt(this@MainActivity, false, gattCallback)
+            val name: String? = result.scanRecord?.deviceName ?: result.device.name ?: result.device?.alias
+            /*val eee = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                pow(10.0, ((result.txPower - Double(truncating: RSSI))/20))
+            } else pow(10.0, ((result.scanRecord?.txPowerLevel?.minus(Double(truncating: RSSI)))?.div(20)!!))*/
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                appendLog("onScanResult name=$name address= ${result.device?.address}," +
+                        " PowerLevel=${result.scanRecord?.txPowerLevel}," +
+                        " Power=${result.txPower}," +
+                        " advertisingSid=${result.advertisingSid}, " +
+                        " deviceName=${result.scanRecord?.deviceName}, " +
+                        " isConnectable=${result.isConnectable} "
+                )
+            } else appendLog("onScanResult name=$name address= ${result.device?.address}, PowerLevel=${result.scanRecord?.txPowerLevel}")
+            /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                result.device.connectGatt(this@MainActivity, true, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            } else result.device.connectGatt(this@MainActivity, true, gattCallback)*/
         }
 
-        override fun onBatchScanResults(results: MutableList<ScanResult>?) {
+        override fun onBatchScanResults(result: MutableList<ScanResult>?) {
             appendLog("onBatchScanResults, ignoring")
+            lifecycleState = BLELifecycleState.ConnectedDiscovering
+
+            /*val name: String? = result?.get(0)?.scanRecord?.deviceName ?: result?.get(0)?.device?.name
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                appendLog("onScanResult name=$name address= ${result?.get(0)?.device?.address}, PowerLevel=${result?.get(0)?.scanRecord?.txPowerLevel}, Power=${result?.get(0)?.txPower}")
+            } else appendLog("onScanResult name=$name address= ${result?.get(0)?.device?.address}, PowerLevel=${result?.get(0)?.scanRecord?.txPowerLevel}")*/
         }
 
         override fun onScanFailed(errorCode: Int) {
             appendLog("onScanFailed errorCode=$errorCode")
             safeStopBleScan()
             lifecycleState = BLELifecycleState.Disconnected
-            bleRestartLifecycle()
+            lifecycleState = BLELifecycleState.Scanning
+            prepareAndStartBleScan()
         }
     }
     //endregion
@@ -328,7 +297,7 @@ class MainActivity : AppCompatActivity() {
                     setConnectedGattToNull()
                     gatt.close()
                     lifecycleState = BLELifecycleState.Disconnected
-                    bleRestartLifecycle()
+                    prepareAndStartBleScan()
                 }
             } else {
                 // TODO: random error 133 - close() and try reconnect
@@ -338,7 +307,7 @@ class MainActivity : AppCompatActivity() {
                 setConnectedGattToNull()
                 gatt.close()
                 lifecycleState = BLELifecycleState.Disconnected
-                bleRestartLifecycle()
+                prepareAndStartBleScan()
             }
         }
 
@@ -440,6 +409,18 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private fun subscribeToIndications(characteristic: BluetoothGattCharacteristic, gatt: BluetoothGatt) {
+        val cccdUuid = UUID.fromString(CCC_DESCRIPTOR_UUID)
+        characteristic.getDescriptor(cccdUuid)?.let { cccDescriptor ->
+            if (!gatt.setCharacteristicNotification(characteristic, true)) {
+                appendLog("ERROR: setNotification(true) failed for ${characteristic.uuid}")
+                return
+            }
+            cccDescriptor.value = BluetoothGattDescriptor.ENABLE_INDICATION_VALUE
+            gatt.writeDescriptor(cccDescriptor)
+        }
+    }
     //endregion
 
     //region BluetoothGattCharacteristic extension
@@ -448,15 +429,6 @@ class MainActivity : AppCompatActivity() {
 
     fun BluetoothGattCharacteristic.isWriteable(): Boolean =
         containsProperty(BluetoothGattCharacteristic.PROPERTY_WRITE)
-
-    fun BluetoothGattCharacteristic.isWriteableWithoutResponse(): Boolean =
-        containsProperty(BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)
-
-    fun BluetoothGattCharacteristic.isNotifiable(): Boolean =
-        containsProperty(BluetoothGattCharacteristic.PROPERTY_NOTIFY)
-
-    fun BluetoothGattCharacteristic.isIndicatable(): Boolean =
-        containsProperty(BluetoothGattCharacteristic.PROPERTY_INDICATE)
 
     private fun BluetoothGattCharacteristic.containsProperty(property: Int): Boolean {
         return (properties and property) != 0
@@ -471,22 +443,6 @@ class MainActivity : AppCompatActivity() {
 
     private var activityResultHandlers = mutableMapOf<Int, (Int) -> Unit>()
     private var permissionResultHandlers = mutableMapOf<Int, (Array<out String>, IntArray) -> Unit>()
-    private var bleOnOffListener = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.STATE_OFF)) {
-                BluetoothAdapter.STATE_ON -> {
-                    appendLog("onReceive: Bluetooth ON")
-                    if (lifecycleState == BLELifecycleState.Disconnected) {
-                        bleRestartLifecycle()
-                    }
-                }
-                BluetoothAdapter.STATE_OFF -> {
-                    appendLog("onReceive: Bluetooth OFF")
-                    bleEndLifecycle()
-                }
-            }
-        }
-    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)

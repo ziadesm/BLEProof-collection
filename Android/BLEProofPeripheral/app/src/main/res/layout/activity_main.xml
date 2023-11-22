@@ -79,6 +79,7 @@
         android:layout_height="wrap_content"
         android:layout_marginStart="24dp"
         android:layout_marginTop="16dp"
+        android:visibility="gone"
         android:text="@string/text_static_char_for_write"
         android:textSize="12sp"
         app:layout_constraintStart_toStartOf="parent"
@@ -91,6 +92,7 @@
         android:layout_marginStart="24dp"
         android:layout_marginTop="16dp"
         android:labelFor="@id/editTextCharForRead"
+        android:visibility="gone"
         android:text="@string/text_static_char_for_read"
         android:textSize="12sp"
         app:layout_constraintStart_toStartOf="parent"
@@ -104,6 +106,7 @@
         android:layout_marginEnd="16dp"
         android:ems="10"
         android:importantForAutofill="no"
+        android:visibility="gone"
         android:inputType="text"
         android:text="Android for read"
         app:layout_constraintEnd_toEndOf="parent"
@@ -118,6 +121,7 @@
         android:layout_marginTop="16dp"
         android:text="@string/text_static_char_for_indicate"
         android:textSize="12sp"
+        android:visibility="gone"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textViewCharForWrite" />
 
@@ -130,6 +134,7 @@
         android:ems="10"
         android:inputType="text"
         android:text="Android indication"
+        android:visibility="gone"
         app:layout_constraintEnd_toStartOf="@+id/buttonSend"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/textViewHintCharForIndicate" />
@@ -141,6 +146,7 @@
         android:layout_marginEnd="16dp"
         android:onClick="onTapSend"
         android:text="@string/button_send"
+        android:visibility="gone"
         app:layout_constraintBaseline_toBaselineOf="@+id/editTextCharForIndicate"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -151,6 +157,7 @@
         android:layout_marginEnd="32dp"
         android:layout_marginBottom="8dp"
         android:text="0 subscribers"
+        android:visibility="gone"
         app:layout_constraintBottom_toTopOf="@+id/buttonSend"
         app:layout_constraintEnd_toEndOf="parent" />
 
