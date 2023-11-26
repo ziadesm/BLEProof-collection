@@ -180,9 +180,9 @@ class MainActivity : AppCompatActivity() {
     private val bleAdvertiser by lazy { bluetoothAdapter.bluetoothLeAdvertiser }
 
     private val advertiseSettings = AdvertiseSettings.Builder()
-        .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_LOW_POWER)
+        .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
         .setConnectable(true)
-        .setTxPowerLevel(ADVERTISE_TX_POWER_ULTRA_LOW)
+        .setTxPowerLevel(ADVERTISE_TX_POWER_LOW)
         .build()
 
     private val advertiseData = AdvertiseData.Builder()

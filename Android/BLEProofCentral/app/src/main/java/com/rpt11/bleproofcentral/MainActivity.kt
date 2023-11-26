@@ -8,13 +8,10 @@ import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.*
-import androidx.appcompat.app.AppCompatActivity
 import android.util.Log
 import android.view.View
 import android.widget.EditText
@@ -22,12 +19,13 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AlertDialog
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import com.google.android.material.switchmaterial.SwitchMaterial
 import java.lang.Math.pow
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.pow
+
 
 private const val ENABLE_BLUETOOTH_REQUEST_CODE = 1
 private const val LOCATION_PERMISSION_REQUEST_CODE = 2
@@ -241,13 +239,19 @@ class MainActivity : AppCompatActivity() {
                 pow(10.0, ((result.txPower - Double(truncating: RSSI))/20))
             } else pow(10.0, ((result.scanRecord?.txPowerLevel?.minus(Double(truncating: RSSI)))?.div(20)!!))*/
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                appendLog("onScanResult name=$name address= ${result.device?.address}," +
-                        " PowerLevel=${result.scanRecord?.txPowerLevel}," +
-                        " Power=${result.txPower}," +
-                        " advertisingSid=${result.advertisingSid}, " +
-                        " deviceName=${result.scanRecord?.deviceName}, " +
-                        " isConnectable=${result.isConnectable} "
+                val eee = pow(10.0, ((result.scanRecord?.txPowerLevel?.toDouble() ?: 0.0)/20))
+                appendLog(
+//                    "onScanResult name=$name address= ${result.device?.address}," +
+//                            " PowerLevel=${result.scanRecord?.txPowerLevel}," +
+//                            " Power=${result.txPower}," +
+//                            " advertisingSid=${result.advertisingSid}, " +
+//                            " deviceName=${result.scanRecord?.deviceName}, " +
+//                            " Distance = ${calcDistByRSSI(result.rssi, result.txPower)}, " +
+                            " Distance = ${rssiToDistance(result.rssi, result.txPower)}, "
+//                            " Distance = ${rssiToDistance(result.txPower, result.rssi.toDouble())}, "
+//                            " isConnectable=${result.isConnectable} "
                 )
+                Log.e("Tag", "onScanResult: >>> ${result.rssi}")
             } else appendLog("onScanResult name=$name address= ${result.device?.address}, PowerLevel=${result.scanRecord?.txPowerLevel}")
             /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 result.device.connectGatt(this@MainActivity, true, gattCallback, BluetoothDevice.TRANSPORT_LE)
@@ -271,6 +275,35 @@ class MainActivity : AppCompatActivity() {
             lifecycleState = BLELifecycleState.Scanning
             prepareAndStartBleScan()
         }
+    }
+
+    fun calcDistByRSSI(rssi: Int, measurePower: Int = -59): String {
+        val power:Double = (measurePower - rssi.toDouble())/20
+//        val power1:Double = pow(10, ((power - Double(truncating: RSSI))/20))
+        return 10.0.pow(power).toString()//String.format("%.2f meters", 10.0.pow(power))
+    }
+
+    fun rssiToDistance(RSSI: Int, txPower: Int): Double {
+        /*
+    * RSSI in dBm
+    * txPower is a transmitter parameter that calculated according to its physic layer and antenna in dBm
+    * Return value in meter
+    *
+    * You should calculate "PL0" in calibration stage:
+    * PL0 = txPower - RSSI; // When distance is distance0 (distance0 = 1m or more)
+    *
+    * SO, RSSI will be calculated by below formula:
+    * RSSI = txPower - PL0 - 10 * n * log(distance/distance0) - G(t)
+    * G(t) ~= 0 //This parameter is the main challenge in achiving to more accuracy.
+    * n = 2 (Path Loss Exponent, in the free space is 2)
+    * distance0 = 1 (m)
+    * distance = 10 ^ ((txPower - RSSI - PL0 ) / (10 * n))
+    *
+    * Read more details:
+    *   https://en.wikipedia.org/wiki/Log-distance_path_loss_model
+    */
+//        pow(10, ((power - Double(truncating: RSSI))/20))
+        return 10.0.pow(((txPower - RSSI).toDouble()) / 20)
     }
     //endregion
 
