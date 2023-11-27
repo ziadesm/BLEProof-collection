@@ -30,10 +30,10 @@ import kotlin.math.pow
 private const val ENABLE_BLUETOOTH_REQUEST_CODE = 1
 private const val LOCATION_PERMISSION_REQUEST_CODE = 2
 private const val BLUETOOTH_ALL_PERMISSIONS_REQUEST_CODE = 3
-private const val SERVICE_UUID = "25AE1441-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_READ_UUID = "25AE1442-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_WRITE_UUID = "25AE1443-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_INDICATE_UUID = "25AE1444-05D3-4C5B-8281-93D4E07420CF"
+private const val SERVICE_UUID = "25AE1441-05D3-4C5B-8381-93D4E07420CF"
+private const val CHAR_FOR_READ_UUID = "25AE1442-05D3-4C5B-8381-93D4E07420CF"
+private const val CHAR_FOR_WRITE_UUID = "25AE1443-05D3-4C5B-8381-93D4E07420CF"
+private const val CHAR_FOR_INDICATE_UUID = "25AE1444-05D3-4C5B-8381-93D4E07420CF"
 private const val CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
 
 @SuppressLint("MissingPermission")
@@ -219,13 +219,13 @@ class MainActivity : AppCompatActivity() {
         }
 
     private val scanSettingsBeforeM = ScanSettings.Builder()
-        .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+        .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
         .setReportDelay(0)
         .build()
 
     @RequiresApi(Build.VERSION_CODES.M)
     private val scanSettingsSinceM = ScanSettings.Builder()
-        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+        .setScanMode(ScanSettings.SCAN_MODE_LOW_POWER)
         .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
         .setMatchMode(ScanSettings.MATCH_MODE_STICKY)
         .setNumOfMatches(ScanSettings.MATCH_NUM_ONE_ADVERTISEMENT)
@@ -234,7 +234,7 @@ class MainActivity : AppCompatActivity() {
 
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val name: String? = result.scanRecord?.deviceName ?: result.device.name ?: result.device?.alias
+            val name: String? = result.scanRecord?.deviceName ?: result.device.name// ?: result.device?.alias
             /*val eee = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 pow(10.0, ((result.txPower - Double(truncating: RSSI))/20))
             } else pow(10.0, ((result.scanRecord?.txPowerLevel?.minus(Double(truncating: RSSI)))?.div(20)!!))*/
@@ -253,9 +253,10 @@ class MainActivity : AppCompatActivity() {
                 )
                 Log.e("Tag", "onScanResult: >>> ${result.rssi}")
             } else appendLog("onScanResult name=$name address= ${result.device?.address}, PowerLevel=${result.scanRecord?.txPowerLevel}")
-            /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                result.device.connectGatt(this@MainActivity, true, gattCallback, BluetoothDevice.TRANSPORT_LE)
-            } else result.device.connectGatt(this@MainActivity, true, gattCallback)*/
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                result.device.connectGatt(this@MainActivity, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+            } else result.device.connectGatt(this@MainActivity, false, gattCallback)
+
         }
 
         override fun onBatchScanResults(result: MutableList<ScanResult>?) {
@@ -317,7 +318,7 @@ class MainActivity : AppCompatActivity() {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     appendLog("Connected to $deviceAddress")
-
+                    safeStopBleScan()
                     // TODO: bonding state
 
                     // recommended on UI thread https://punchthrough.com/android-ble-guide/

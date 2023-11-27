@@ -8,6 +8,7 @@ import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.AdvertiseSettings.ADVERTISE_TX_POWER_LOW
+import android.bluetooth.le.AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM
 import android.bluetooth.le.AdvertiseSettings.ADVERTISE_TX_POWER_ULTRA_LOW
 import android.content.Context
 import android.content.Intent
@@ -29,10 +30,10 @@ import java.util.*
 
 private const val ENABLE_BLUETOOTH_REQUEST_CODE = 1
 private const val BLUETOOTH_ALL_PERMISSIONS_REQUEST_CODE = 2
-private const val SERVICE_UUID = "25AE1441-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_READ_UUID = "25AE1442-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_WRITE_UUID = "25AE1443-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_INDICATE_UUID = "25AE1444-05D3-4C5B-8281-93D4E07420CF"
+private const val SERVICE_UUID = "25AE1441-05D3-4C5B-8381-93D4E07420CF"
+private const val CHAR_FOR_READ_UUID = "25AE1442-05D3-4C5B-8381-93D4E07420CF"
+private const val CHAR_FOR_WRITE_UUID = "25AE1443-05D3-4C5B-8381-93D4E07420CF"
+private const val CHAR_FOR_INDICATE_UUID = "25AE1444-05D3-4C5B-8381-93D4E07420CF"
 private const val CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
 
 @SuppressLint("MissingPermission")
@@ -110,12 +111,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bleStartAdvertising() {
-//        bleStartGattServer()
+        bleStartGattServer()
         bleAdvertiser.startAdvertising(advertiseSettings, advertiseData, advertiseCallback)
     }
 
     private fun bleStopAdvertising() {
-//        bleStopGattServer()
+        bleStopGattServer()
         bleAdvertiser.stopAdvertising(advertiseCallback)
     }
 
@@ -182,7 +183,7 @@ class MainActivity : AppCompatActivity() {
     private val advertiseSettings = AdvertiseSettings.Builder()
         .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
         .setConnectable(true)
-        .setTxPowerLevel(ADVERTISE_TX_POWER_LOW)
+        .setTxPowerLevel(ADVERTISE_TX_POWER_MEDIUM)
         .build()
 
     private val advertiseData = AdvertiseData.Builder()
@@ -219,6 +220,7 @@ class MainActivity : AppCompatActivity() {
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
             runOnUiThread {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    bleAdvertiser.stopAdvertising(advertiseCallback)
                     textViewConnectionState.text = getString(R.string.text_connected)
                     appendLog("Central did connect")
                 } else {
