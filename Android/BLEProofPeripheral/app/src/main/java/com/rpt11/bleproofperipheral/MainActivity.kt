@@ -26,11 +26,11 @@ import java.util.*
 
 private const val ENABLE_BLUETOOTH_REQUEST_CODE = 1
 private const val BLUETOOTH_ALL_PERMISSIONS_REQUEST_CODE = 2
-private const val SERVICE_UUID = "25AE1441-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_READ_UUID = "25AE1442-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_WRITE_UUID = "25AE1443-05D3-4C5B-8281-93D4E07420CF"
-private const val CHAR_FOR_INDICATE_UUID = "25AE1444-05D3-4C5B-8281-93D4E07420CF"
-private const val CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
+internal const val SERVICE_UUID = "25AE1441-05D3-4C5B-8381-93D4E07420CF"
+internal const val CHAR_FOR_READ_UUID = "25AE1442-05D3-4C5B-8381-93D4E07420CF"
+internal const val CHAR_FOR_WRITE_UUID = "25AE1443-05D3-4C5B-8381-93D4E07420CF"
+internal const val CHAR_FOR_INDICATE_UUID = "25AE1444-05D3-4C5B-8381-93D4E07420CF"
+internal const val CCC_DESCRIPTOR_UUID = "00002902-0000-1000-8000-00805f9b34fb"
 
 class MainActivity : AppCompatActivity() {
     private val switchAdvertising: SwitchMaterial
@@ -244,7 +244,9 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     textViewConnectionState.text = getString(R.string.text_disconnected)
                     appendLog("Central did disconnect")
-                    subscribedDevices.remove(device)
+                    subscribedDevices.forEach {
+                        subscribedDevices.remove(it)
+                    }
                     updateSubscribersUI()
                 }
             }
